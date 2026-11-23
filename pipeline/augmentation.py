@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-ACTIVE_AUGMENTATION_OPS: tuple[str, ...] = ('identity_augmentation',)
+ACTIVE_AUGMENTATION_OPS: tuple[str, ...] = ()
 
 
 def run_augmentation_stage(
