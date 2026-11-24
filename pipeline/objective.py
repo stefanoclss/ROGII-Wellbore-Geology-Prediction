@@ -1,14 +1,14 @@
 """Stage 3 · Target Formulation & Loss Weighting (`pipeline/objective.py`).
 
 Synthesized by sovLoop (Model: qwen3.5:9b)
-Active Operations: huber_robust_objective
+Active Operations: anchor_residual_target
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-ACTIVE_OBJECTIVE_OPS: tuple[str, ...] = ('huber_robust_objective',)
+ACTIVE_OBJECTIVE_OPS: tuple[str, ...] = ('anchor_residual_target',)
 
 
 def _kaplan_meier_risk_target(times: np.ndarray, events: np.ndarray) -> np.ndarray:
