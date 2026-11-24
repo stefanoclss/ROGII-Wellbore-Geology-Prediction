@@ -2,9 +2,9 @@
 
 [![Autonomous Synthesis](https://img.shields.io/badge/Synthesized%20By-sovLoop%20(Stealth)-0A66C2?style=for-the-badge)](#how-this-pipeline-was-built)
 [![Foundation LLM](https://img.shields.io/badge/Model-qwen3.5%3A9b-111827?style=for-the-badge)](#how-this-pipeline-was-built)
-[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%208.25072-059669?style=for-the-badge)](#verified-validation-benchmark)
+[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%209.63581-059669?style=for-the-badge)](#verified-validation-benchmark)
 [![Security](https://img.shields.io/badge/Zero--Pickle-CWE--502%20Compliant-374151?style=for-the-badge)](#governance--production-guarantees)
-[![Kaggle Public Notebook](https://img.shields.io/badge/Kaggle%20Notebook-Public%20Kernel-20BEFF?style=for-the-badge)](https://www.kaggle.com/code/stefanoclss/rogii-wellbore-geology-prediction)
+[![Kaggle Public Notebook](https://img.shields.io/badge/Kaggle%20Notebook-Public%20Kernel-20BEFF?style=for-the-badge)](https://www.kaggle.com/stefanoclss/rogii-wellbore-geology-prediction)
 [![Kaggle Challenge](https://img.shields.io/badge/Challenge-Benchmark-0284C7?style=for-the-badge)](https://www.kaggle.com/competitions/rogii-wellbore-geology-prediction)
 
 > **Autonomous End-to-End Machine Learning Engineering by sovLoop**
@@ -14,7 +14,7 @@
 
 ## Executive Overview
 
-Predict `TVT` (regression) across `97` structured predictors on `train.csv` under strict leak-free 5-fold out-of-fold validation to minimize `RMSE`.
+Predict `TVT` (regression) across `74` structured predictors on `rogii-wellbore-geology-prediction` under strict leak-free 5-fold out-of-fold validation to minimize `RMSE`.
 
 Production data science teams need pipelines that are not only accurate, but **readable, explainable, and maintainable**. Every transformation in this repository is organized by pipeline topology stage (`preprocessing`, `feature_engineering`, `objective`, `models`, `postprocess`) and validated incrementally via **sovLoop** (operating in private stealth mode).
 
@@ -33,12 +33,12 @@ Production data science teams need pipelines that are not only accurate, but **r
 
 | Benchmark Dimension | Verified Result |
 | :--- | :--- |
-| **Challenge / Dataset** | **ROGII Wellbore Geology Prediction** (`train.csv`) |
+| **Challenge / Dataset** | **ROGII Wellbore Geology Prediction** (`rogii-wellbore-geology-prediction`) |
 | **Target Variable (`y`)** | `TVT` (`regression`) |
 | **Evaluation KPI** | `RMSE` (Lower is better) |
-| **Baseline 5-Fold OOF Score** | `8.68591` |
-| **Champion 5-Fold OOF Score** | **`8.25072`** (`+0.43519` verified lift vs. baseline) |
-| **Cross-Fold Stability (Std. Dev.)** | `±0.75209` across `5` strict folds |
+| **Baseline 5-Fold OOF Score** | `9.64329` |
+| **Champion 5-Fold OOF Score** | **`9.63581`** (`+0.00748` verified lift vs. baseline) |
+| **Cross-Fold Stability (Std. Dev.)** | `±0.74229` across `5` strict folds |
 | **Synthesis LLM** | `qwen3.5:9b` (via **sovLoop**) |
 
 ---
@@ -49,9 +49,10 @@ Every individual model inside the unrestricted ensemble is benchmarked independe
 
 | Model Family (`key`) | Standalone Val Score | Mean Fold Fit | Mean Fold Inference | Ensemble Weight | Deployment Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CatBoost Symmetric** (`catboost`) | `8.19411 ± 0.70444` | `4808.1 ms` | `28.25 ms` | `78.1%` | `Best Solo Accuracy` |
-| **Optuna XGBoost** (`xgb`) | `8.26314 ± 0.78626` | `10850.2 ms` | `37.56 ms` | `6.3%` | `Active Ensemble Member` |
-| **Optuna LightGBM** (`lgbm`) | `8.27145 ± 0.80189` | `4634.4 ms` | `26.63 ms` | `15.6%` | `Fastest Low-Latency` |
+| **CV-Tuned L2 Ridge Linear** (`ridge_l2`) | `9.71827 ± 0.68861` | `195.4 ms` | `7.19 ms` | `86.2%` | `Best Solo + Fastest SLA` |
+| **Optuna LightGBM** (`lgbm`) | `16.27147 ± 3.08945` | `8706.6 ms` | `33.67 ms` | `5.8%` | `Active Ensemble Member` |
+| **Optuna XGBoost** (`xgb`) | `17.70333 ± 2.42298` | `14849.9 ms` | `16.72 ms` | `5.9%` | `Active Ensemble Member` |
+| **CatBoost Symmetric** (`catboost`) | `19.57263 ± 7.09393` | `15909.0 ms` | `11.72 ms` | `2.1%` | `Active Ensemble Member` |
 
 ---
 
@@ -61,8 +62,8 @@ Every row below corresponds to a verified out-of-fold promotion recorded as an *
 
 | Iteration | Module Evolved | Active Synthesis Operations | 5-Fold OOF `RMSE` | Lift | Engineering Rationale |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Gen 0** | `scaffold` | Baseline initialization | `8.68591` | `baseline` | Deterministic 5-fold leak-free baseline anchor |
-| **Gen 1** | `pipeline/models.py` (`gbdt_trajectory_stream`) | `lgbm_optuna_tuned`, `catboost_tuned`, `xgb_optuna_tuned` | `8.25072` | `+0.43519` | [Reference Blueprint `ref_11_ruby_2d_alignment_pf_ensemble`] 1st Place 2D Curve-Alignment + Binned FFBSi Particle Filter + Dual-Track Ensemble |
+| **Gen 0** | `scaffold` | Baseline initialization | `9.64329` | `baseline` | Deterministic 5-fold leak-free baseline anchor |
+| **Gen 1** | `pipeline/models.py` (`gbdt_trajectory_stream`) | `lgbm_optuna_tuned`, `catboost_tuned`, `xgb_optuna_tuned`, `ridge_l2_linear` | `9.63581` | `+0.00748` | Coordinate-ascent probe on `gbdt_trajectory_stream`: Test 4-model ensemble adding `CV-Tuned L2 Ridge Linear Ensemble Head` |
 
 ---
 
@@ -70,20 +71,20 @@ Every row below corresponds to a verified out-of-fold promotion recorded as an *
 
 ```mermaid
 flowchart LR
-    DATA["Raw Data (97 predictors)"] --> SPLIT["5-Fold CV Split"]
-    SPLIT --> PRE["1. Preprocessing: median_impute, missing_indicators, robust_zscore"]
-    PRE --> FEAT["2. Features: row_summary_stats, pairwise_diff_crosses, plr_periodic_embeddings, top_pair_ratios, +1 more"]
-    FEAT --> OBJ["3. Objective: anchor_residual_target"]
-    OBJ --> M0["4a. Primary Ensemble: CatBoost Symmetric (78%) + Optuna XGBoost (6%) + Optuna LightGBM (16%)"]
+    DATA["Raw Data (74 predictors)"] --> SPLIT["5-Fold CV Split"]
+    SPLIT --> PRE["1. Preprocessing: mean_impute"]
+    PRE --> FEAT["2. Features: raw_passthrough"]
+    FEAT --> OBJ["3. Objective: standard_task_loss"]
+    OBJ --> M0["4a. Primary Ensemble: CV-Tuned L2 Ridge Linear (86%) + Optuna LightGBM (6%) + Optuna XGBoost (6%) + CatBoost Symmetric (2%)"]
     M0 --> FUSE["Quantile-CDF Fusion"]
-    OBJ --> S1["4b. gbdt_trajectory_stream: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned"]
+    OBJ --> S1["4b. gbdt_trajectory_stream: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned, +1 more"]
     S1 --> FUSE
     OBJ --> S2["4b. linear_residual_stream: view_feat:row_summary_stats, ridge_l2_linear"]
     S2 --> FUSE
-    OBJ --> S3["4b. neural_sequence_stream: view_feat:plr_periodic_embeddings, tabm_periodic_mlp"]
+    OBJ --> S3["4b. neural_sequence_stream: view_feat:plr_periodic_embeddings, tabm_periodic_mlp, realmlp_tuned_head"]
     S3 --> FUSE
-    FUSE --> POST["5. Post-Processing: oof_residual_ridge"]
-    POST --> OUT["5-Fold OOF & Holdout (RMSE = 8.25072)"]
+    FUSE --> POST["5. Post-Processing: identity_passthrough"]
+    POST --> OUT["5-Fold OOF & Holdout (RMSE = 9.63581)"]
 ```
 
 | Deliverable | Role in Production Workflow |
@@ -138,7 +139,3 @@ Working on **sovereign local-first AI, neuro-symbolic & agentic harnesses, and c
 - **Author**: **Stefano Claes** (AI Systems Architect)
 - **LinkedIn**: [https://www.linkedin.com/in/stefano-claes-266435140/](https://www.linkedin.com/in/stefano-claes-266435140/)
 - **GitHub**: [https://github.com/stefanoclss](https://github.com/stefanoclss)
-
-## Reasoning Trace & Transfer Verification (Diverge → Verify → Converge)
-
-Full machine-verifiable sensor/schema transfer assumptions and empirical divergent hypotheses evaluated before convergence are recorded in [`REASONING_TRACE.md`](./REASONING_TRACE.md) and [`reasoning_trace.json`](./reasoning_trace.json).
