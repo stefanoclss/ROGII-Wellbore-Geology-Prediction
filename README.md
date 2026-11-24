@@ -2,7 +2,7 @@
 
 [![Autonomous Synthesis](https://img.shields.io/badge/Synthesized%20By-sovLoop%20(Stealth)-0A66C2?style=for-the-badge)](#how-this-pipeline-was-built)
 [![Foundation LLM](https://img.shields.io/badge/Model-qwen3.5%3A9b-111827?style=for-the-badge)](#how-this-pipeline-was-built)
-[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%209.11267-059669?style=for-the-badge)](#verified-validation-benchmark)
+[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%208.76126-059669?style=for-the-badge)](#verified-validation-benchmark)
 [![Security](https://img.shields.io/badge/Zero--Pickle-CWE--502%20Compliant-374151?style=for-the-badge)](#governance--production-guarantees)
 [![Kaggle Public Notebook](https://img.shields.io/badge/Kaggle%20Notebook-Public%20Kernel-20BEFF?style=for-the-badge)](https://www.kaggle.com/code/stefanoclss/rogii-wellbore-geology-prediction)
 [![Kaggle Challenge](https://img.shields.io/badge/Challenge-Benchmark-0284C7?style=for-the-badge)](https://www.kaggle.com/competitions/rogii-wellbore-geology-prediction)
@@ -37,8 +37,8 @@ Production data science teams need pipelines that are not only accurate, but **r
 | **Target Variable (`y`)** | `TVT` (`regression`) |
 | **Evaluation KPI** | `RMSE` (Lower is better) |
 | **Baseline 5-Fold OOF Score** | `9.64673` |
-| **Champion 5-Fold OOF Score** | **`9.11267`** (`+0.53406` verified lift vs. baseline) |
-| **Cross-Fold Stability (Std. Dev.)** | `±0.76093` across `5` strict folds |
+| **Champion 5-Fold OOF Score** | **`8.76126`** (`+0.88547` verified lift vs. baseline) |
+| **Cross-Fold Stability (Std. Dev.)** | `±0.81678` across `5` strict folds |
 | **Synthesis LLM** | `qwen3.5:9b` (via **sovLoop**) |
 
 ---
@@ -49,10 +49,10 @@ Every individual model inside the unrestricted ensemble is benchmarked independe
 
 | Model Family (`key`) | Standalone Val Score | Mean Fold Fit | Mean Fold Inference | Ensemble Weight | Deployment Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CV-Tuned L2 Ridge Linear** (`ridge_l2`) | `9.07201 ± 0.68993` | `215.5 ms` | `6.64 ms` | `89.8%` | `Best Solo + Fastest SLA` |
-| **Optuna LightGBM** (`lgbm`) | `15.19315 ± 3.99566` | `7086.6 ms` | `17.85 ms` | `3.8%` | `Active Ensemble Member` |
-| **Optuna XGBoost** (`xgb`) | `15.91150 ± 1.83337` | `14542.1 ms` | `17.10 ms` | `6.5%` | `Active Ensemble Member` |
-| **CatBoost Symmetric** (`catboost`) | `20.49494 ± 7.66353` | `17235.3 ms` | `11.29 ms` | `0.0%` | `Standby Candidate` |
+| **Optuna LightGBM** (`lgbm`) | `8.68344 ± 0.74459` | `3044.1 ms` | `10.93 ms` | `40.8%` | `Best Solo Accuracy` |
+| **Optuna XGBoost** (`xgb`) | `8.69518 ± 0.80288` | `6543.2 ms` | `14.27 ms` | `25.5%` | `Active Ensemble Member` |
+| **CatBoost Symmetric** (`catboost`) | `8.74143 ± 0.85471` | `6495.8 ms` | `10.70 ms` | `10.4%` | `Active Ensemble Member` |
+| **CV-Tuned L2 Ridge Linear** (`ridge_l2`) | `8.86795 ± 0.86121` | `205.7 ms` | `7.58 ms` | `23.3%` | `Fastest Low-Latency` |
 
 ---
 
@@ -66,6 +66,7 @@ Every row below corresponds to a verified out-of-fold promotion recorded as an *
 | **Gen 1** | `pipeline/models.py` (`gbdt_trajectory_stream`) | `lgbm_optuna_tuned`, `catboost_tuned`, `xgb_optuna_tuned`, `ridge_l2_linear` | `9.63033` | `+0.01640` | Coordinate-ascent probe on `gbdt_trajectory_stream`: Test 4-model ensemble adding `CV-Tuned L2 Ridge Linear Ensemble Head` |
 | **Gen 2** | `pipeline/objective.py` | `huber_robust_objective` | `9.61140` | `+0.01893` | Applying Huber loss will reduce RMSE by down-weighting the >Q75 outliers identified in pf_std and pf_vs_hmm_gap residuals, while standard MSE preserves... |
 | **Gen 3** | `pipeline/models.py` (`neural_sequence_stream`) | `alignment_2d_convnext_unet`, `modern_nca_head`, `view_obj:quantile_rank_target` | `9.11267` | `+0.49874` | Integrating a spatial-aware ConvNeXt topology with ModernNCA metric learning and Rank-Gauss target normalization will mitigate heavy-tailed residual... |
+| **Gen 4** | `pipeline/objective.py` | `anchor_residual_target` | `8.76126` | `+0.35141` | Coordinate-ascent probe on `objective`: Prefix-Anchor Residual Target Offset (y - anchor) |
 
 ---
 
@@ -76,8 +77,8 @@ flowchart LR
     DATA["Raw Data (81 predictors)"] --> SPLIT["5-Fold CV Split"]
     SPLIT --> PRE["1. Preprocessing: mean_impute"]
     PRE --> FEAT["2. Features: raw_passthrough"]
-    FEAT --> OBJ["3. Objective: huber_robust_objective"]
-    OBJ --> M0["4a. Primary Ensemble: CV-Tuned L2 Ridge Linear (90%) + Optuna LightGBM (4%) + Optuna XGBoost (6%)"]
+    FEAT --> OBJ["3. Objective: anchor_residual_target"]
+    OBJ --> M0["4a. Primary Ensemble: Optuna LightGBM (41%) + Optuna XGBoost (25%) + CatBoost Symmetric (10%) + CV-Tuned L2 Ridge Linear (23%)"]
     M0 --> FUSE["Quantile-CDF Fusion"]
     OBJ --> S1["4b. gbdt_trajectory_stream: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned, +1 more"]
     S1 --> FUSE
@@ -86,7 +87,7 @@ flowchart LR
     OBJ --> S3["4b. neural_sequence_stream: alignment_2d_convnext_unet, modern_nca_head, view_obj:quantile_rank_target"]
     S3 --> FUSE
     FUSE --> POST["5. Post-Processing: identity_passthrough"]
-    POST --> OUT["5-Fold OOF & Holdout (RMSE = 9.11267)"]
+    POST --> OUT["5-Fold OOF & Holdout (RMSE = 8.76126)"]
 ```
 
 | Deliverable | Role in Production Workflow |
