@@ -1,7 +1,7 @@
 """Stage 2 · Interpretable Feature Engineering (`pipeline/features.py`).
 
 Synthesized by sovLoop (Model: qwen3.5:9b)
-Active Operations: log1p_skewed
+Active Operations: synth:null_co:pf_lik5_y:pf_lik8_y, synth:null_co:pf_lik5_y:pf_lik5_delta, synth:groupby_z:MD:pf_mean_y, synth:groupby_rank:MD:pf_mean_y, cat_groupby_stats
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-ACTIVE_FEATURE_OPS: tuple[str, ...] = ('log1p_skewed',)
-PRIORITY_SIGNAL_COLUMNS: list[str] = ['prefix_anchor_last', 'pf_mean_y', 'align_dp_med', 'align_fb_med', 'align_dp_tight', 'prefix_anchor_max']
+ACTIVE_FEATURE_OPS: tuple[str, ...] = ('synth:null_co:pf_lik5_y:pf_lik8_y', 'synth:null_co:pf_lik5_y:pf_lik5_delta', 'synth:groupby_z:MD:pf_mean_y', 'synth:groupby_rank:MD:pf_mean_y', 'cat_groupby_stats')
+PRIORITY_SIGNAL_COLUMNS: list[str] = ['prefix_anchor_last', 'prefix_anchor_max', 'pf_mean_y', 'cnn2d_map_y', 'cnn2d_uproj_y', 'ref_axis_max']
 
 
 def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
@@ -27,13 +27,26 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
             if len(fallback_cols) >= 4:
                 break
 
-    # Signed log1p compression for skewed continuous predictors
-    if 'prefix_anchor_last' in out.columns: out['prefix_anchor_last_log1p'] = np.sign(out['prefix_anchor_last']) * np.log1p(np.abs(out['prefix_anchor_last']))
-    if 'pf_mean_y' in out.columns: out['pf_mean_y_log1p'] = np.sign(out['pf_mean_y']) * np.log1p(np.abs(out['pf_mean_y']))
-    if 'align_dp_med' in out.columns: out['align_dp_med_log1p'] = np.sign(out['align_dp_med']) * np.log1p(np.abs(out['align_dp_med']))
-    for _c in fallback_cols[:3]:
-        if f'{_c}_log1p' not in out.columns:
-            out[f'{_c}_log1p'] = np.sign(out[_c]) * np.log1p(np.abs(out[_c]))
+    # Row-wise summary moments across predictors
+    if fallback_cols:
+        out['row_numeric_mean'] = out[fallback_cols].mean(axis=1)
+        out['row_numeric_std'] = out[fallback_cols].std(axis=1).fillna(0.0)
+    if len(fallback_cols) >= 2:
+        _rk = out[fallback_cols[0]].rank(method='first')
+        _q = pd.qcut(_rk, q=4, labels=False, duplicates='drop')
+        _g = out.groupby(_q)[fallback_cols[1]].transform('mean')
+        out['cohort_ctx_mean'] = _g
+        out['cohort_ctx_resid'] = out[fallback_cols[1]] - _g
+    if 'MD' in out.columns and 'pf_mean_y' in out.columns:
+        _grp = out['pf_mean_y'].round(3)
+        _gmu = out.groupby(_grp)['MD'].transform('mean')
+        _gsd = out.groupby(_grp)['MD'].transform('std').fillna(1.0)
+        out['MD_groupby_z_pf_mean_y'] = ((out['MD'] - _gmu) / _gsd.clip(lower=1e-2)).clip(-10, 10)
+    if 'MD' in out.columns and 'pf_mean_y' in out.columns:
+        _grp = out['pf_mean_y'].round(3)
+        _gmu = out.groupby(_grp)['MD'].transform('mean')
+        _gsd = out.groupby(_grp)['MD'].transform('std').fillna(1.0)
+        out['MD_groupby_rank_pf_mean_y'] = ((out['MD'] - _gmu) / _gsd.clip(lower=1e-2)).clip(-10, 10)
 
     return out.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
