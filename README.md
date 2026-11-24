@@ -138,3 +138,7 @@ Working on **sovereign local-first AI, neuro-symbolic & agentic harnesses, and c
 - **Author**: **Stefano Claes** (AI Systems Architect)
 - **LinkedIn**: [https://www.linkedin.com/in/stefano-claes-266435140/](https://www.linkedin.com/in/stefano-claes-266435140/)
 - **GitHub**: [https://github.com/stefanoclss](https://github.com/stefanoclss)
+
+## Reasoning Trace & Transfer Verification (Diverge → Verify → Converge)
+
+Full machine-verifiable sensor/schema transfer assumptions and empirical divergent hypotheses evaluated before convergence are recorded in [`REASONING_TRACE.md`](./REASONING_TRACE.md) and [`reasoning_trace.json`](./reasoning_trace.json).

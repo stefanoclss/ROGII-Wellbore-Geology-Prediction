@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "trace_rogii_2d_cnn_pf_sota_v1",
+  "created_at": "2026-11-24T00:33:55.356462+00:00",
+  "source_dataset": "rogii-wellbore-geology-prediction (773 wells, 56,027 eval rows)",
+  "architecture_name": "Dual-Backbone 2D Alignment U-Net (ConvNeXt-Tiny + ResNet34d) + Spatial Plane-KNN + Kinematic PF/HMM + Level-2 Meta-Ensemble",
+  "architecture_summary": "Fuses a 12-channel 2D sequence-to-reference similarity tensor (ConvNeXt-Tiny + ResNet34d + BiGRU + 3-view TTA), NaN-masked Coupled-Invariant Kinematic PF + 2D Rotating-Dip HMM, distance-gated Spatial Plane-KNN, and anchor-residual CatBoost/XGBoost/LightGBM/Ridge/TabM Level-2 stack.",
+  "target_metric": "RMSE",
+  "higher_is_better": false,
+  "baseline_cv": 15.8567,
+  "final_cv": 8.25072,
+  "source_profile": {
+    "regime": "grouped_sequence",
+    "has_reference_curve": true,
+    "sensor_channel_count": 1,
+    "sensor_missing_rate": 0.28,
+    "sensor_needs_calibration": true,
+    "coupled_invariant_collapse": 0.975,
+    "target_anchor_span_p99": 53.0,
+    "has_spatial_coords": true,
+    "has_train_only_surfaces": true,
+    "disjoint_entity_groups": true,
+    "has_censored_event": false,
+    "n_rows": 56027,
+    "n_features": 100
+  },
+  "assumptions": [
+    {
+      "check_id": "require_1d_reference_curve",
+      "profile_field": "has_reference_curve",
+      "operator": "bool_true",
+      "expected_value": true,
+      "severity": "hard_blocker",
+      "why_it_matters": "The 12-channel 2D alignment image encodes similarity between observed sequence logs and a paired 1D reference curve at every candidate vertical offset.",
+      "if_violated_action": "DIVERGE_DO_NOT_COPY 2D reference-alignment CNN; instead explore 1D Temporal ConvNet (TCN) / BiGRU sequence encoders or autoregressive residual GBDTs directly on sequence dynamics."
+    },
+    {
+      "check_id": "single_vs_multi_channel_sensor",
+      "profile_field": "sensor_channel_count",
+      "operator": "eq",
+      "expected_value": 1,
+      "severity": "adapt_required",
+      "why_it_matters": "Channels 0-3 assume one primary scalar sensor log (e.g., GR) compared to a 1D reference log.",
+      "if_violated_action": "ADAPT 2D input stem: if sensor_channel_count > 1 (e.g., multi-sensor telemetry/IMU/multi-log), stack per-channel similarity/bandpass maps or replace manual similarity with a learned 1D-to-2D cross-attention/outer-product similarity encoder."
+    },
+    {
+      "check_id": "sensor_missingness_gap_handling",
+      "profile_field": "sensor_missing_rate",
+      "operator": "lte",
+      "expected_value": 0.65,
+      "severity": "adapt_required",
+      "why_it_matters": "Linear interpolation across long sensor NaN gaps hallucinates false peaks (`sp4.5` degraded from 9.70 -> 11.23 RMSE); NaN-masked likelihood + explicit validity mask channel are essential when missing rate > 5%.",
+      "if_violated_action": "ADAPT sensor likelihood & masking: if missing rate > 65%, down-weight sensor similarity and rely primarily on coupled kinematics/spatial geometry; if missing rate == 0%, simplify mask channel and test sharper sensor noise sigma."
+    },
+    {
+      "check_id": "vertical_window_coordinate_frame",
+      "profile_field": "target_anchor_span_p99",
+      "operator": "lte",
+      "expected_value": 72.0,
+      "severity": "adapt_required",
+      "why_it_matters": "On ROGII 99.6% of rows satisfy |TVT - last_TVT| <= 72 ft (while |U - last_U| exceeded 72 ft on 52.5% of rows), so indexing the 2D CNN vertically in (y - last_y) prevented clipping.",
+      "if_violated_action": "ADAPT vertical grid & coordinate frame: empirically compare p99(|y - last_y|) vs p99(|U - last_U|) on training folds before training the 2D CNN; choose the tighter frame and set half_span >= 1.2 * p99."
+    },
+    {
+      "check_id": "spatial_neighbor_surface_availability",
+      "profile_field": "has_train_only_surfaces",
+      "operator": "bool_true",
+      "expected_value": true,
+      "severity": "advisory",
+      "why_it_matters": "Spatial Plane-KNN & Dense IDW exploit neighbor entities' auxiliary surfaces gated by distance + prefix RMSE (high error standalone 23.8-37.8, helpful only when distance-gated).",
+      "if_violated_action": "ADAPT by omitting channel 7 (spatial surface stripe) and spatial consensus terms cleanly when spatial coordinates or train-only surfaces do not exist."
+    },
+    {
+      "check_id": "disjoint_entity_group_validation",
+      "profile_field": "disjoint_entity_groups",
+      "operator": "bool_true",
+      "expected_value": true,
+      "severity": "adapt_required",
+      "why_it_matters": "Disjoint GroupKFold entities require entity-grouped inner Optuna/early-stopping splits, excluding entity_id from categorical features, order-preserving sampling, and jump-safe SavGol.",
+      "if_violated_action": "ADAPT CV & encoding: if entities overlap across train/test, switch to Stratified/Time split and evaluate entity OOF target encoding."
+    }
+  ],
+  "divergent_options": [
+    {
+      "option_id": "opt_sp45_linear_interp_pf",
+      "family": "physics_state_space",
+      "hypothesis": "Copy 6.39-LB public kernel sp4.5 multi-seed PF with linear GR gap interpolation + heel calibration.",
+      "empirical_metric": 10.9576,
+      "outcome": "rejected",
+      "rationale": "Linearly interpolating across 40-60% NaN GR gaps hallucinated false formation signatures (11.23 raw / 10.96 heel-cal vs 9.70 NaN-masked PF+HMM -> REJECTED)."
+    },
+    {
+      "option_id": "opt_nan_masked_kinematic_pf_hmm",
+      "family": "physics_state_space",
+      "hypothesis": "NaN-masked coupled-invariant Kinematic PF + exact 2D Rotating-Dip Forward-Backward HMM + IRLS U-projection.",
+      "empirical_metric": 9.6983,
+      "outcome": "adapted",
+      "rationale": "Strong zero-ML physics prior (-6.16 RMSE over baseline, -1.54 better than sp4.5), retained as Channels 5-6 and inverse-variance prior rather than final standalone model."
+    },
+    {
+      "option_id": "opt_spatial_plane_knn_standalone",
+      "family": "spatial_interpolation",
+      "hypothesis": "Predict TVT directly from neighbor wells via local Plane-KNN & Dense IDW surfaces.",
+      "empirical_metric": 23.7758,
+      "outcome": "adapted",
+      "rationale": "High standalone RMSE (23.8 dense / 37.9 plane) on isolated wells, but strong on dense-field wells (dist < 0.03); adapted into distance-gated inverse-variance consensus instead of standalone predictor."
+    },
+    {
+      "option_id": "opt_2d_cnn_u_space_vs_tvt_space",
+      "family": "2d_vision_cnn",
+      "hypothesis": "Index 2D alignment tensor vertically in coupled invariant U=TVT+Z vs TVT-centered (TVT - last_TVT).",
+      "empirical_metric": 8.4791,
+      "outcome": "converged",
+      "rationale": "Empirical span check proved |U - last_U| > 72 ft on 52.5% of rows whereas |TVT - last_TVT| <= 72 ft on 99.6% of rows; TVT-centered Dual-Backbone ConvNeXt-Tiny (8.96) + ResNet34d (9.06) ensemble converged to 8.4791 raw / 8.4070 U-projected."
+    },
+    {
+      "option_id": "opt_level2_blind_savgol_and_entity_te",
+      "family": "level2_meta_gbdt",
+      "hypothesis": "Apply standard Savitzky-Golay postprocessing + entity_id categorical target encoding on Level-2 GBDTs.",
+      "empirical_metric": 10.5088,
+      "outcome": "rejected",
+      "rationale": "Shuffled >30k subsampling + unseen GroupKFold entity codes caused SavGol cross-well boundary bleed (+2.26 RMSE) and inner-val entity leakage; fixed order-preserving sampling, jump-safe SavGol, group-aware inner splits, and entity_id exclusion."
+    },
+    {
+      "option_id": "opt_level2_multistream_anchor_residual",
+      "family": "level2_meta_gbdt",
+      "hypothesis": "Anchor-residual CatBoost + Optuna XGBoost + Optuna LightGBM + Ridge + TabM over inverse-variance consensus (8.2647).",
+      "empirical_metric": 8.25072,
+      "outcome": "converged",
+      "rationale": "CatBoost branch hit 8.1941 OOF and combined multi-stream ensemble converged to 8.25072 with 0.0 zero-pickle standalone parity."
+    }
+  ],
+  "convergence_rationale": "Converged on Dual-Backbone 2D Alignment U-Net + NaN-masked PF/HMM + distance-gated Spatial Consensus + Group-safe Level-2 Anchor-Residual Meta-Ensemble (15.8567 -> 8.25072 RMSE) only after falsifying linear-interp PF, U-space windowing, standalone spatial KNN, and blind SavGol/entity-TE.",
+  "copy_vs_adapt_rules": [
+    "DO NOT blindly copy the 2D reference-alignment CNN if the new problem lacks a 1D reference curve \u2014 diverge to 1D TCN/BiGRU/Transformer or multi-scale GBDTs.",
+    "ALWAYS inspect sensor channel count, calibration drift, and NaN gap distribution before building 2D similarity channels; adapt multi-channel sensors rather than forcing single-channel formulas.",
+    "ALWAYS measure p99 target excursion in both raw target space and coupled-invariant space before fixing a 2D vertical window span.",
+    "NEVER copy postprocessing smoothers or target encodings without verifying GroupKFold entity disjointness and sequential row ordering."
+  ]
+}
