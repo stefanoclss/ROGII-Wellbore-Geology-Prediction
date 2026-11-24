@@ -2,7 +2,7 @@
 
 Synthesized by sovLoop (Model: qwen3.5:9b)
 Target: `TVT` (regression | RMSE)
-Active Model Operations: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned, ridge_l2_linear, tabm_periodic_mlp, realmlp_tuned_head, alignment_2d_convnext_unet, alignment_2d_resnet34d_unet
+Active Model Operations: ridge_alpha_1.0, lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned, ridge_l2_linear, alignment_2d_convnext_unet, modern_nca_head
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import pandas as pd
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-ACTIVE_MODEL_OPS: tuple[str, ...] = ('lgbm_optuna_tuned', 'catboost_tuned', 'xgb_optuna_tuned', 'ridge_l2_linear', 'tabm_periodic_mlp', 'realmlp_tuned_head', 'alignment_2d_convnext_unet', 'alignment_2d_resnet34d_unet')
+ACTIVE_MODEL_OPS: tuple[str, ...] = ('ridge_alpha_1.0', 'lgbm_optuna_tuned', 'catboost_tuned', 'xgb_optuna_tuned', 'ridge_l2_linear', 'alignment_2d_convnext_unet', 'modern_nca_head')
 IS_BINARY_TASK: bool = "regression" == "binary_classification"
 
 
