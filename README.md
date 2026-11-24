@@ -2,7 +2,7 @@
 
 [![Autonomous Synthesis](https://img.shields.io/badge/Synthesized%20By-sovLoop%20(Stealth)-0A66C2?style=for-the-badge)](#how-this-pipeline-was-built)
 [![Foundation LLM](https://img.shields.io/badge/Model-qwen3.5%3A9b-111827?style=for-the-badge)](#how-this-pipeline-was-built)
-[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%208.93313-059669?style=for-the-badge)](#verified-validation-benchmark)
+[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%208.91536-059669?style=for-the-badge)](#verified-validation-benchmark)
 [![Security](https://img.shields.io/badge/Zero--Pickle-CWE--502%20Compliant-374151?style=for-the-badge)](#governance--production-guarantees)
 [![Kaggle Public Notebook](https://img.shields.io/badge/Kaggle%20Notebook-Public%20Kernel-20BEFF?style=for-the-badge)](https://www.kaggle.com/code/stefanoclss/rogii-wellbore-geology-prediction)
 [![Kaggle Challenge](https://img.shields.io/badge/Challenge-Benchmark-0284C7?style=for-the-badge)](https://www.kaggle.com/competitions/rogii-wellbore-geology-prediction)
@@ -37,8 +37,8 @@ Production data science teams need pipelines that are not only accurate, but **r
 | **Target Variable (`y`)** | `TVT` (`regression`) |
 | **Evaluation KPI** | `RMSE` (Lower is better) |
 | **Baseline 5-Fold OOF Score** | `9.64329` |
-| **Champion 5-Fold OOF Score** | **`8.93313`** (`+0.71017` verified lift vs. baseline) |
-| **Cross-Fold Stability (Std. Dev.)** | `±0.68297` across `5` strict folds |
+| **Champion 5-Fold OOF Score** | **`8.91536`** (`+0.72793` verified lift vs. baseline) |
+| **Cross-Fold Stability (Std. Dev.)** | `±0.68590` across `5` strict folds |
 | **Synthesis LLM** | `qwen3.5:9b` (via **sovLoop**) |
 
 ---
@@ -49,9 +49,10 @@ Every individual model inside the unrestricted ensemble is benchmarked independe
 
 | Model Family (`key`) | Standalone Val Score | Mean Fold Fit | Mean Fold Inference | Ensemble Weight | Deployment Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CatBoost Symmetric** (`catboost`) | `14.94624 ± 1.90230` | `21658.8 ms` | `17.48 ms` | `48.1%` | `Best Solo + Fastest SLA` |
-| **Optuna LightGBM** (`lgbm`) | `15.34281 ± 3.90730` | `8142.7 ms` | `25.23 ms` | `40.3%` | `Active Ensemble Member` |
-| **Optuna XGBoost** (`xgb`) | `20.26846 ± 7.23060` | `16605.4 ms` | `23.52 ms` | `11.6%` | `Active Ensemble Member` |
+| **CV-Tuned L2 Ridge Linear** (`ridge_l2`) | `8.90211 ± 0.66978` | `278.0 ms` | `11.66 ms` | `91.7%` | `Best Solo + Fastest SLA` |
+| **CatBoost Symmetric** (`catboost`) | `14.94519 ± 1.90105` | `21658.8 ms` | `16.15 ms` | `0.5%` | `Standby Candidate` |
+| **Optuna LightGBM** (`lgbm`) | `15.34221 ± 3.90508` | `8142.7 ms` | `25.93 ms` | `4.3%` | `Active Ensemble Member` |
+| **Optuna XGBoost** (`xgb`) | `20.25758 ± 7.22213` | `16605.4 ms` | `21.99 ms` | `3.4%` | `Active Ensemble Member` |
 
 ---
 
@@ -66,6 +67,8 @@ Every row below corresponds to a verified out-of-fold promotion recorded as an *
 | **Gen 2** | `pipeline/postprocess.py` | `oof_residual_ridge` | `9.55794` | `+0.00231` | Applying fold-safe linear residual skip-correction on the OOF residuals will reduce RMSE below 6.1596 by modeling and removing systematic bias detected... |
 | **Gen 3** | `pipeline/features.py` | `synth:null_co:pf_lik5_y:pf_lik8_y`, `synth:null_co:pf_lik5_y:pf_lik5_delta`, `synth:groupby_z:MD:pf_mean_y`, `synth:groupby_rank:MD:pf_mean_y`, `cat_groupby_stats` | `9.46518` | `+0.09276` | Encoding missingness in pf_lik* columns alongside MD-stratified group statistics will capture the 1.47x residual multiplicative bias by converting... |
 | **Gen 4** | `pipeline/models.py` (`neural_sequence_stream`) | `view_feat:plr_periodic_embeddings`, `tabm_periodic_mlp`, `realmlp_tuned_head`, `alignment_2d_convnext_unet`, `alignment_2d_resnet34d_unet`, `view_obj:quantile_rank_target` | `8.93313` | `+0.53205` | Robust 2D spatial alignment handles wellbore geometric shifts, while quantile-rank target transformation provides rank-based robustness against... |
+| **Gen 5** | `pipeline/models.py` (`gbdt_trajectory_stream`) | `lgbm_optuna_tuned`, `catboost_tuned`, `xgb_optuna_tuned`, `ridge_l2_linear` | `8.93312` | `+0.00001` | Coordinate-ascent probe on `gbdt_trajectory_stream`: Test 4-model ensemble adding `CV-Tuned L2 Ridge Linear Ensemble Head` |
+| **Gen 6** | `pipeline/models.py` (`linear_residual_stream`) | `view_obj:quantile_rank_target`, `view_feat:plr_periodic_embeddings` | `8.91536` | `+0.01775` | Applying Rank-Gauss target smoothing neutralizes the heavy-tail residual dispersion caused by pf_std and pf_vs_hmm_gap outliers, while periodic... |
 
 ---
 
@@ -77,16 +80,16 @@ flowchart LR
     SPLIT --> PRE["1. Preprocessing: mean_impute"]
     PRE --> FEAT["2. Features: synth:null_co:pf_lik5_y:pf_lik8_y, synth:null_co:pf_lik5_y:pf_lik5_delta, synth:groupby_z:MD:pf_mean_y, synth:groupby_rank:MD:pf_mean_y, +1 more"]
     FEAT --> OBJ["3. Objective: standard_task_loss"]
-    OBJ --> M0["4a. Primary Ensemble: CatBoost Symmetric (48%) + Optuna LightGBM (40%) + Optuna XGBoost (12%)"]
+    OBJ --> M0["4a. Primary Ensemble: CV-Tuned L2 Ridge Linear (92%) + CatBoost Symmetric (1%) + Optuna LightGBM (4%) + Optuna XGBoost (3%)"]
     M0 --> FUSE["Quantile-CDF Fusion"]
-    OBJ --> S1["4b. gbdt_trajectory_stream: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned"]
+    OBJ --> S1["4b. gbdt_trajectory_stream: lgbm_optuna_tuned, catboost_tuned, xgb_optuna_tuned, +1 more"]
     S1 --> FUSE
-    OBJ --> S2["4b. linear_residual_stream: view_feat:row_summary_stats, ridge_l2_linear"]
+    OBJ --> S2["4b. linear_residual_stream: view_obj:quantile_rank_target, view_feat:plr_periodic_embeddings"]
     S2 --> FUSE
     OBJ --> S3["4b. neural_sequence_stream: view_feat:plr_periodic_embeddings, tabm_periodic_mlp, realmlp_tuned_head, +3 more"]
     S3 --> FUSE
     FUSE --> POST["5. Post-Processing: oof_residual_ridge"]
-    POST --> OUT["5-Fold OOF & Holdout (RMSE = 8.93313)"]
+    POST --> OUT["5-Fold OOF & Holdout (RMSE = 8.91536)"]
 ```
 
 | Deliverable | Role in Production Workflow |
