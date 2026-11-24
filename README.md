@@ -2,7 +2,7 @@
 
 [![Autonomous Synthesis](https://img.shields.io/badge/Synthesized%20By-sovLoop%20(Stealth)-0A66C2?style=for-the-badge)](#how-this-pipeline-was-built)
 [![Foundation LLM](https://img.shields.io/badge/Model-qwen3.5%3A9b-111827?style=for-the-badge)](#how-this-pipeline-was-built)
-[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%209.56025-059669?style=for-the-badge)](#verified-validation-benchmark)
+[![Validation](https://img.shields.io/badge/5--Fold%20OOF-RMSE%209.55794-059669?style=for-the-badge)](#verified-validation-benchmark)
 [![Security](https://img.shields.io/badge/Zero--Pickle-CWE--502%20Compliant-374151?style=for-the-badge)](#governance--production-guarantees)
 [![Kaggle Public Notebook](https://img.shields.io/badge/Kaggle%20Notebook-Public%20Kernel-20BEFF?style=for-the-badge)](https://www.kaggle.com/code/stefanoclss/rogii-wellbore-geology-prediction)
 [![Kaggle Challenge](https://img.shields.io/badge/Challenge-Benchmark-0284C7?style=for-the-badge)](https://www.kaggle.com/competitions/rogii-wellbore-geology-prediction)
@@ -37,8 +37,8 @@ Production data science teams need pipelines that are not only accurate, but **r
 | **Target Variable (`y`)** | `TVT` (`regression`) |
 | **Evaluation KPI** | `RMSE` (Lower is better) |
 | **Baseline 5-Fold OOF Score** | `9.64329` |
-| **Champion 5-Fold OOF Score** | **`9.56025`** (`+0.08304` verified lift vs. baseline) |
-| **Cross-Fold Stability (Std. Dev.)** | `±0.64787` across `5` strict folds |
+| **Champion 5-Fold OOF Score** | **`9.55794`** (`+0.08535` verified lift vs. baseline) |
+| **Cross-Fold Stability (Std. Dev.)** | `±0.64578` across `5` strict folds |
 | **Synthesis LLM** | `qwen3.5:9b` (via **sovLoop**) |
 
 ---
@@ -49,9 +49,9 @@ Every individual model inside the unrestricted ensemble is benchmarked independe
 
 | Model Family (`key`) | Standalone Val Score | Mean Fold Fit | Mean Fold Inference | Ensemble Weight | Deployment Role |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Optuna LightGBM** (`lgbm`) | `15.12438 ± 3.97944` | `8733.7 ms` | `31.62 ms` | `54.7%` | `Best Solo Accuracy` |
-| **Optuna XGBoost** (`xgb`) | `16.18067 ± 1.72195` | `14853.6 ms` | `18.35 ms` | `41.0%` | `Active Ensemble Member` |
-| **CatBoost Symmetric** (`catboost`) | `21.47668 ± 7.56813` | `14130.7 ms` | `12.75 ms` | `4.2%` | `Fastest Low-Latency` |
+| **Optuna LightGBM** (`lgbm`) | `15.12124 ± 3.97514` | `8733.7 ms` | `31.39 ms` | `54.7%` | `Best Solo Accuracy` |
+| **Optuna XGBoost** (`xgb`) | `16.17795 ± 1.72043` | `14853.6 ms` | `16.95 ms` | `41.0%` | `Active Ensemble Member` |
+| **CatBoost Symmetric** (`catboost`) | `21.47389 ± 7.56674` | `14130.7 ms` | `12.27 ms` | `4.2%` | `Fastest Low-Latency` |
 
 ---
 
@@ -63,6 +63,7 @@ Every row below corresponds to a verified out-of-fold promotion recorded as an *
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Gen 0** | `scaffold` | Baseline initialization | `9.64329` | `baseline` | Deterministic 5-fold leak-free baseline anchor |
 | **Gen 1** | `pipeline/models.py` (`neural_sequence_stream`) | `view_feat:plr_periodic_embeddings`, `tabm_periodic_mlp`, `realmlp_tuned_head`, `alignment_2d_convnext_unet`, `view_obj:kaplan_meier_target` | `9.56025` | `+0.08304` | Deploying the 2D Alignment ConvNeXt U-Net captures deep spatial correlations in wellbore sequences to handle heavy-tailed feature distributions, while... |
+| **Gen 2** | `pipeline/postprocess.py` | `oof_residual_ridge` | `9.55794` | `+0.00231` | Applying fold-safe linear residual skip-correction on the OOF residuals will reduce RMSE below 6.1596 by modeling and removing systematic bias detected... |
 
 ---
 
@@ -82,8 +83,8 @@ flowchart LR
     S2 --> FUSE
     OBJ --> S3["4b. neural_sequence_stream: view_feat:plr_periodic_embeddings, tabm_periodic_mlp, realmlp_tuned_head, +2 more"]
     S3 --> FUSE
-    FUSE --> POST["5. Post-Processing: identity_passthrough"]
-    POST --> OUT["5-Fold OOF & Holdout (RMSE = 9.56025)"]
+    FUSE --> POST["5. Post-Processing: oof_residual_ridge"]
+    POST --> OUT["5-Fold OOF & Holdout (RMSE = 9.55794)"]
 ```
 
 | Deliverable | Role in Production Workflow |
